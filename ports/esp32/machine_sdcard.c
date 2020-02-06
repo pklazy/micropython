@@ -297,39 +297,63 @@ STATIC mp_obj_t sd_info(mp_obj_t self_in) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(sd_info_obj, sd_info);
 
-STATIC mp_obj_t machine_sdcard_readblocks(mp_obj_t self_in, mp_obj_t block_num, mp_obj_t buf) {
-    sdcard_card_obj_t *self = self_in;
+STATIC mp_obj_t machine_sdcard_readblocks(size_t n_args, const mp_obj_t *args) {
+    sdcard_card_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    mp_obj_t block_num = args[1];
+    mp_obj_t buf = args[2];
     mp_buffer_info_t bufinfo;
     esp_err_t err;
 
+    if (n_args == 4) {
+        mp_int_t offset = mp_obj_get_int(args[3]);
+        if (offset != 0) {
+            mp_raise_OSError(MP_EINVAL);
+        }
+    }
+
     err = sdcard_ensure_card_init((sdcard_card_obj_t *) self, false);
     if (err != ESP_OK) {
-        return false;
+		mp_raise_OSError(-err);
     }
 
     mp_get_buffer_raise(buf, &bufinfo, MP_BUFFER_WRITE);
     err = sdmmc_read_sectors(&(self->card), bufinfo.buf, mp_obj_get_int(block_num), bufinfo.len / _SECTOR_SIZE(self) );
+    if (err != ESP_OK) {
+		mp_raise_OSError(-err);
+    }
 
-    return mp_obj_new_bool(err == ESP_OK);
+    return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_3(machine_sdcard_readblocks_obj, machine_sdcard_readblocks);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_sdcard_readblocks_obj, 3, 4, machine_sdcard_readblocks);
 
-STATIC mp_obj_t machine_sdcard_writeblocks(mp_obj_t self_in, mp_obj_t block_num, mp_obj_t buf) {
-    sdcard_card_obj_t *self = self_in;
+STATIC mp_obj_t machine_sdcard_writeblocks(size_t n_args, const mp_obj_t *args) {
+    sdcard_card_obj_t *self = MP_OBJ_TO_PTR(args[0]);
+    mp_obj_t block_num = args[1];
+    mp_obj_t buf = args[2];
     mp_buffer_info_t bufinfo;
     esp_err_t err;
 
+    if (n_args == 4) {
+        mp_int_t offset = mp_obj_get_int(args[3]);
+        if (offset != 0) {
+            mp_raise_OSError(MP_EINVAL);
+        }
+    }
+
     err = sdcard_ensure_card_init((sdcard_card_obj_t *) self, false);
     if (err != ESP_OK) {
-        return false;
+		mp_raise_OSError(-err);
     }
 
     mp_get_buffer_raise(buf, &bufinfo, MP_BUFFER_READ);
     err = sdmmc_write_sectors(&(self->card), bufinfo.buf, mp_obj_get_int(block_num), bufinfo.len / _SECTOR_SIZE(self) );
+    if (err != ESP_OK) {
+		mp_raise_OSError(-err);
+    }
 
-    return mp_obj_new_bool(err == ESP_OK);
+    return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_3(machine_sdcard_writeblocks_obj, machine_sdcard_writeblocks);
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_sdcard_writeblocks_obj, 3, 4, machine_sdcard_writeblocks);
 
 STATIC mp_obj_t machine_sdcard_ioctl(mp_obj_t self_in, mp_obj_t cmd_in, mp_obj_t arg_in) {
     sdcard_card_obj_t *self = self_in;
@@ -361,6 +385,10 @@ STATIC mp_obj_t machine_sdcard_ioctl(mp_obj_t self_in, mp_obj_t cmd_in, mp_obj_t
             if (err != ESP_OK)
                 return MP_OBJ_NEW_SMALL_INT(-1);
             return MP_OBJ_NEW_SMALL_INT(_SECTOR_SIZE(self));
+
+        case MP_BLOCKDEV_IOCTL_BLOCK_ERASE:
+            // nothing to do
+            return MP_OBJ_NEW_SMALL_INT(0); // success
 
         default: // unknown command
             return MP_OBJ_NEW_SMALL_INT(-1); // error

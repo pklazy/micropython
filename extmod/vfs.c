@@ -167,10 +167,10 @@ STATIC mp_obj_t mp_vfs_autodetect(mp_obj_t bdev_obj) {
         mp_obj_t vfs = MP_OBJ_NULL;
         mp_vfs_blockdev_t blockdev;
         mp_vfs_blockdev_init(&blockdev, bdev_obj);
-        uint8_t buf[44];
-        mp_vfs_blockdev_read_ext(&blockdev, 0, 8, sizeof(buf), buf);
+        uint8_t buf[512];
+        mp_vfs_blockdev_read_ext(&blockdev, 0, 0, sizeof(buf), buf);
         #if MICROPY_VFS_LFS1
-        if (memcmp(&buf[32], "littlefs", 8) == 0) {
+        if (memcmp(&buf[40], "littlefs", 8) == 0) {
             // LFS1
             vfs = mp_type_vfs_lfs1.make_new(&mp_type_vfs_lfs1, 1, 0, &bdev_obj);
             nlr_pop();
@@ -178,7 +178,7 @@ STATIC mp_obj_t mp_vfs_autodetect(mp_obj_t bdev_obj) {
         }
         #endif
         #if MICROPY_VFS_LFS2
-        if (memcmp(&buf[0], "littlefs", 8) == 0) {
+        if (memcmp(&buf[8], "littlefs", 8) == 0) {
             // LFS2
             vfs = mp_type_vfs_lfs2.make_new(&mp_type_vfs_lfs2, 1, 0, &bdev_obj);
             nlr_pop();
